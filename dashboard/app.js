@@ -712,19 +712,31 @@ async function runTerminalCmd(input) {
     }
 
     // Quick-add:
-    // add <ip>
-    // add <ip> agent [port] [secret]
-    // add <ip> <user> [pass]
+    // add <ip>                  — auto mode: check for self-registered username first, then agent fallback
+    // add <ip> agent [port]     — explicit agent mode
+    // add <ip> <user> [pass]    — explicit SSH mode
     if (cmd === 'add') {
-        if (parts.length < 2) { termPrint('Usage: add <ip> | add <ip> agent [port] [secret] | add <ip> <username> [password]'); return; }
+        if (parts.length < 2) { termPrint('Usage: add <ip> | add <ip> <username> [password] | add <ip> agent [port]'); return; }
 
         const ip = parts[1];
         const modeArg = (parts[2] || '').toLowerCase();
         let payload;
 
         if (!parts[2]) {
-            payload = { ip, mode: 'agent', agent_port: 9999 };
-            termPrint(`Connecting to ${ip} (agent mode, port 9999)...`);
+            // No username given — check if device self-registered with a username
+            const existing = state.devices.find(d => d.ip_address === ip);
+            const report = existing?.report;
+            const reportedUser = report?.username || '';
+
+            if (reportedUser) {
+                // Device ran setup_device.py and registered — try SSH key auth with reported username
+                payload = { ip, mode: 'ssh', username: reportedUser, password: '', port: report?.ssh_port || 22 };
+                termPrint(`Connecting to ${ip} as ${reportedUser} (key auth, no password)...`);
+            } else {
+                // No registration data — try agent mode
+                payload = { ip, mode: 'agent', agent_port: 9999 };
+                termPrint(`Connecting to ${ip} (agent mode, port 9999)...`);
+            }
         } else if (modeArg === 'agent') {
             payload = {
                 ip,
@@ -741,7 +753,7 @@ async function runTerminalCmd(input) {
                 password: parts[3] || '',
                 port: 22,
             };
-            termPrint(`Connecting to ${ip} (ssh mode)...`);
+            termPrint(`Connecting to ${ip}${!parts[3] ? ' (key auth)' : ''} as ${parts[2]}...`);
         }
 
         const result = await api('/api/devices/add', 'POST', payload);
