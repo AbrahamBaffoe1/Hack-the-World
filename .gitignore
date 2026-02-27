@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+*.whl
+venv/
+.venv/
+env/
+
+# Database
+*.db
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SSH keys (NEVER commit)
+*.pem
+id_rsa
+id_ed25519
+id_ecdsa
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# Gemini / AI agent artifacts
+.gemini/
+.agents/

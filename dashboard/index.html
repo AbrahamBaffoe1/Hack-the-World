@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ Remote Shutdown — War Room</title>
+    <meta name="description" content="Agentless remote device control dashboard">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- ═══════════════════ HEADER ═══════════════════ -->
+    <header class="header">
+        <div class="header-brand">
+            <div class="logo-icon">⚡</div>
+            <div>
+                <h1 class="logo-text">REMOTE SHUTDOWN</h1>
+                <div class="logo-subtitle">HYBRID CONTROL • AGENT + SSH</div>
+            </div>
+        </div>
+        <div class="header-stats">
+            <div class="stat-card">
+                <div class="stat-label">DEVICES</div>
+                <div class="stat-value" id="stat-total-value">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">ONLINE</div>
+                <div class="stat-value accent-green" id="stat-online-value">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">STATUS</div>
+                <div class="stat-value" id="stat-status-value">OFFLINE</div>
+            </div>
+            <div class="stat-card" id="stat-ssh-key-card" title="Controller SSH key status">
+                <div class="stat-label">SSH KEY</div>
+                <div class="stat-value" id="stat-ssh-key-value">CHECK</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ═══════════════════ NAV BAR ═══════════════════ -->
+    <nav class="nav-bar">
+        <div class="nav-tabs">
+            <button class="tab active" data-tab="devices">📡 Devices</button>
+            <button class="tab" data-tab="logs">📋 Logs</button>
+            <button class="tab" data-tab="terminal">💻 Terminal</button>
+        </div>
+        <div class="nav-actions">
+            <button class="btn btn-primary" id="btn-add-device">
+                <span class="btn-icon">➕</span> ADD DEVICE
+            </button>
+            <button class="btn btn-info" id="btn-invite">
+                <span class="btn-icon">📧</span> INVITE
+            </button>
+            <button class="btn btn-secondary" id="btn-discover">
+                <span class="btn-icon">📡</span> SCAN
+            </button>
+        </div>
+    </nav>
+
+    <!-- ═══════════════════ CONTENT ═══════════════════ -->
+    <main class="content">
+        <!-- Devices Tab -->
+        <section class="tab-content active" id="content-devices">
+            <!-- Mass Actions Bar -->
+            <div class="mass-actions">
+                <label class="checkbox-wrap">
+                    <input type="checkbox" id="select-all">
+                    <span>Select All</span>
+                </label>
+                <div class="mass-btns">
+                    <button class="btn btn-sm btn-danger" id="mass-shutdown" disabled>⏻ SHUTDOWN ALL</button>
+                    <button class="btn btn-sm btn-warning" id="mass-reboot" disabled>🔄 REBOOT ALL</button>
+                    <button class="btn btn-sm btn-info" id="mass-sleep" disabled>🌙 SLEEP ALL</button>
+                    <button class="btn btn-sm btn-success" id="mass-wake" disabled>☀️ WAKE ALL</button>
+                </div>
+            </div>
+
+            <!-- Device Grid -->
+            <div class="device-grid" id="device-grid">
+                <div class="empty-state" id="empty-state">
+                    <div class="empty-icon">🔌</div>
+                    <h3>No Devices Yet</h3>
+                    <p>Click <strong>ADD DEVICE</strong> and enter an IP address.<br>
+                        Your SSH keys are used automatically — just IP and you're good to go.</p>
+                    <button class="btn btn-primary" id="btn-add-device-empty">
+                        <span class="btn-icon">➕</span> ADD YOUR FIRST DEVICE
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Logs Tab -->
+        <section class="tab-content" id="content-logs">
+            <div class="log-container" id="log-container"></div>
+        </section>
+
+        <!-- Terminal Tab -->
+        <section class="tab-content" id="content-terminal">
+            <div class="terminal">
+                <div class="terminal-header">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
+                    <span class="terminal-title">rshd — remote shutdown daemon</span>
+                </div>
+                <div class="terminal-output" id="terminal-output">
+                    <pre style="color: var(--accent-cyan)">Remote Shutdown Controller v1.0 — Hybrid Agent + SSH Mode
+Type "help" for available commands.</pre>
+                </div>
+                <div class="terminal-input-line">
+                    <span class="terminal-prompt">rshd &gt;</span>
+                    <input type="text" class="terminal-input" id="terminal-input" placeholder="Type a command..."
+                        autocomplete="off" spellcheck="false">
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ═══════════ ADD DEVICE MODAL ═══════════ -->
+    <div class="modal-overlay" id="add-device-overlay">
+        <div class="modal" id="add-device-modal">
+            <div class="modal-header">
+                <span class="modal-icon" id="add-modal-icon">🔗</span>
+                <h2 class="modal-title">Add Device</h2>
+                <p class="modal-subtitle">Just enter the IP — we handle the rest</p>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">IP Address *</label>
+                    <input type="text" class="form-input" id="add-ip" placeholder="192.168.1.100" autofocus>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">MAC Address (for Wake-on-LAN)</label>
+                    <input type="text" class="form-input" id="add-mac" placeholder="AA:BB:CC:DD:EE:FF">
+                </div>
+
+                <!-- Advanced SSH Settings (collapsed by default) -->
+                <div class="advanced-toggle" id="advanced-toggle">
+                    ▸ Advanced SSH Settings <span class="advanced-hint">(auto-detected by default)</span>
+                </div>
+                <div class="advanced-section" id="advanced-section" style="display:none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">SSH Port</label>
+                            <input type="number" class="form-input" id="add-port" value="22" min="1" max="65535">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-input" id="add-username" placeholder="(auto: current user)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-input" id="add-password"
+                            placeholder="(auto: uses your SSH keys)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">SSH Key Path</label>
+                        <input type="text" class="form-input" id="add-keypath" placeholder="(auto: ~/.ssh/id_rsa)">
+                    </div>
+                </div>
+
+                <div id="add-error" class="form-error" style="display:none;"></div>
+                <div id="add-success" class="form-success" style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="add-cancel">CANCEL</button>
+                <button class="btn btn-primary" id="add-submit">
+                    <span id="add-submit-text">🔗 CONNECT</span>
+                    <span id="add-submit-spinner" class="spinner" style="display:none;"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ CONFIRM MODAL ═══════════ -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-icon" id="modal-icon">⚠️</span>
+                <h2 class="modal-title" id="modal-title">Confirm Action</h2>
+            </div>
+            <div class="modal-body">
+                <p id="modal-message">Are you sure?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="modal-cancel">CANCEL</button>
+                <button class="btn btn-danger" id="modal-confirm">CONFIRM</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ EMAIL INVITE MODAL ═══════════ -->
+    <div class="modal-overlay" id="invite-overlay">
+        <div class="modal" id="invite-modal">
+            <div class="modal-header">
+                <span class="modal-icon">📧</span>
+                <h2 class="modal-title">Invite Device</h2>
+                <p class="modal-subtitle">Send setup instructions via email</p>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">To (email address) *</label>
+                    <input type="email" class="form-input" id="invite-to" placeholder="user@example.com" autofocus>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Subject</label>
+                    <input type="text" class="form-input" id="invite-subject"
+                        value="Set up Remote Shutdown on your device">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Personal Message (optional)</label>
+                    <textarea class="form-input" id="invite-message" rows="3"
+                        placeholder="Hey! Please run the setup script so I can manage your device remotely."></textarea>
+                </div>
+
+                <div class="advanced-toggle" id="smtp-toggle">
+                    ▸ SMTP Settings <span class="advanced-hint">(required first time)</span>
+                </div>
+                <div class="advanced-section" id="smtp-section" style="display:none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">SMTP Host</label>
+                            <input type="text" class="form-input" id="smtp-host" value="smtp.gmail.com">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Port</label>
+                            <input type="number" class="form-input" id="smtp-port" value="587">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Your Email (sender)</label>
+                        <input type="email" class="form-input" id="smtp-user" placeholder="you@gmail.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">App Password</label>
+                        <input type="password" class="form-input" id="smtp-pass"
+                            placeholder="Gmail App Password (not your regular password)">
+                    </div>
+                </div>
+
+                <div id="invite-error" class="form-error" style="display:none;"></div>
+                <div id="invite-success" class="form-success" style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="invite-cancel">CANCEL</button>
+                <button class="btn btn-primary" id="invite-submit">
+                    <span id="invite-submit-text">📧 SEND INVITE</span>
+                    <span id="invite-submit-spinner" class="spinner" style="display:none;"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ TOAST CONTAINER ═══════════ -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
